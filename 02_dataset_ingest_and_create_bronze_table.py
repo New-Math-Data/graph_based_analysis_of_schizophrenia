@@ -16,7 +16,7 @@
 # MAGIC   * Create a Schema/Database for the table's permanent residence
 # MAGIC   * Formulate and Integrate raw data into a Delta table for analysis
 # MAGIC
-# MAGIC ^*Note: "Delta" refers to Delta Lake, which is an open-source storage layer that brings ACID transactions, scalable metadata handling, and data versioning to processing engines.
+# MAGIC ^*Note: `Delta` refers to Delta Lake, which is an open-source storage layer that brings ACID transactions, scalable metadata handling, and data versioning to processing engines.
 
 # COMMAND ----------
 
