@@ -9,7 +9,7 @@
 # MAGIC Electroencephalography (EEG) data collected from 14 patients with schizophrenia and 14 healthy controls is used in this notebook.
 # MAGIC
 # MAGIC ##### In this notebook you will:
-# MAGIC * Retrieve the EEG dataset....
+# MAGIC * Retrieve the EEG dataset.
 # MAGIC * Read the EEG data into a DataFrame using the ^*`Delta` format, ensuring ACID transactions and query capabilities.
 # MAGIC * Clean the DataFrame by removing invalid characters from the header
 # MAGIC * Create the Bronze Layer Delta Table
@@ -21,7 +21,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##### Retrieve the dataset from the .zip file stored in Catalog that was obtained from the Open Data (RepOD) website
+# MAGIC ##### Retrieve the dataset from the .zip file stored in Catalog. Data was objected from the Open Data (RepOD) website
 
 # COMMAND ----------
 
