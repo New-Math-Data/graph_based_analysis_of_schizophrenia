@@ -50,7 +50,10 @@ def calculate_conn(data_intervals, i, j, sample_rate, channels, bands):
 # COMMAND ----------
 
 ELECTRODE_LOCATIONS = ['Fp2', 'F8', 'T4', 'T6', 'O2', 'Fp1', 'F7', 'T3', 'T5', 'O1', 'F4', 'C4', 'P4', 'F3', 'C3', 'P3', 'Fz', 'Cz', 'Pz']
-items = ELECTRODE_LOCATIONS
+
+ELECTRODE_LOCATIONS_ORDERED = ['Fp1', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8', 'T3','C3', 'Cz',  'C4', 'T4', 'T5', 'P3', 'Pz', 'P4', 'T6', 'O1','O2']
+
+items = ELECTRODE_LOCATIONS_ORDERED
 pairs_with_self = []
 for i in range(len(items)):
     for j in range(i, len(items)):
@@ -103,6 +106,69 @@ for row in unique_patient_ids_list:
 # COMMAND ----------
 
 results_df
+
+# COMMAND ----------
+
+spark_df = spark.createDataFrame(results_df[results_df.patient_id == 's13'])
+display(spark_df)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Finding that the Databricks heatmap cannot be customized as needed to match the research paper figures. 
+
+# COMMAND ----------
+
+df_delta = spark_df.select('cx', 'cy', 'plv_delta')
+display(df_delta)
+
+# COMMAND ----------
+
+!pip install seaborn
+
+# COMMAND ----------
+
+import seaborn as sns
+
+# COMMAND ----------
+
+a = np.array(df_delta)
+display(a)
+
+# COMMAND ----------
+
+filtered_df = results_df[results_df.patient_id == 's13']
+
+# tried pivot, but it was sorting ABC and doesn't have a param for sort
+df_pivot = filtered_df.pivot("cx", "cy", "plv_delta")
+display(df_pivot)
+
+# COMMAND ----------
+
+
+
+#will need to decide about the aggfunc, how to handle that
+pivot_table = pd.pivot_table(filtered_df, values='plv_delta', index='cx', columns='cy', aggfunc='mean', sort=False)
+display(pivot_table)
+
+
+# COMMAND ----------
+
+transposed_pivot_table = pivot_table.transpose()
+combined_pivot_table = pivot_table.combine_first(transposed_pivot_table)
+display(combined_pivot_table)
+
+# COMMAND ----------
+
+sns.heatmap(df_pivot, cmap='Spectral_r', 
+            square=True, vmin=0.0, linewidths=.5, cbar_kws={"shrink": .5})
+
+# COMMAND ----------
+
+
+#vmin=0.0, vmax=1.0, center=0,
+sns.heatmap(combined_pivot_table, cmap='Spectral_r', 
+            square=True, vmin=0.0, linewidths=.5, cbar_kws={"shrink": .5})
 
 # COMMAND ----------
 
