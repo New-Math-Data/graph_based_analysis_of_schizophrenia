@@ -52,8 +52,10 @@
 # MAGIC
 # MAGIC **Authors**
 # MAGIC - Ramona Niederhausern  [<rnieder@newmathdata.com>]
-# MAGIC - Traey Hatch [<thatch@newmathdata.com>]
+# MAGIC - Ben Martin [<bmartin@newmathdata.com>]
+# MAGIC - Heather Woods [<hwoods@newmathdata.com>]
 # MAGIC - Ryan Johnson [<rjohnson@newmathdata.com>]
+# MAGIC - Traey Hatch [<thatch@newmathdata.com>]
 # MAGIC
 # MAGIC **Contact** \
 # MAGIC     New Math Data, LLC \

@@ -102,7 +102,7 @@ for filename in os.listdir(directory):
             for i in range(n_signals):
                 signal_data[signal_labels[i]] = edf_f.readSignal(i)
                 # Verify we have 250 Hz of datapoints, 15 min * 60 sec = 900, 900 * 250 = 225000
-                print(f"Num of Signals:::{signal_labels[i]} Num{len( signal_data[signal_labels[i]])}")
+                # print(f"Num of Signals:::{signal_labels[i]} Num{len( signal_data[signal_labels[i]])}")
             print(signal_data.keys())
 
             # Close the .edf file
@@ -112,11 +112,16 @@ for filename in os.listdir(directory):
             # making a Pandas DataFrame first is faster and will ensure the double data type for the signals 
             df_eeg_data = pd.DataFrame.from_dict(signal_data)
 
-            fn = filename.replace(".edf","")
-            print(f"FN::{fn}")
+            patient_file_name = filename.replace(".edf","")
+            print(f"patient_file_name::{patient_file_name}")
 
+            # Add a new index column. We do this so the data goes in, in order for the sine waves
+            df_eeg_data['index_id'] = df_eeg_data.index
+            # print(df_eeg_data)
+            
             df_spark = spark.createDataFrame(df_eeg_data)
-            df_spark = df_spark.withColumn('patient_id', lit(fn))
+            df_spark = df_spark.withColumn('patient_id', lit(patient_file_name))
+            # display(df_spark)
             
             if filename.startswith("h"):
                 if df_master_h is None:
@@ -129,14 +134,14 @@ for filename in os.listdir(directory):
                     df_master_s = df_spark
                 else:
                     df_master_s = df_master_s.union(df_spark)
-                    print("APPEND")
+                    print("APPEND")    
 print('DONE') 
 
 # COMMAND ----------
 
 # Output the Dataframe Schema 
-df_master_h.printSchema()
-df_master_s.printSchema()
+# df_master_h.printSchema()
+# df_master_s.printSchema()
 
 # COMMAND ----------
 
@@ -149,13 +154,18 @@ df_master_s.printSchema()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ###### Verify number of rows in DataFrame looks reasonable
+
+# COMMAND ----------
+
 # Checking number of rows in Dataframes
 
-rows_h = df_master_h.count()
-print(f"Number of N rows {rows_h}")
+# rows_h = df_master_h.count()
+# print(f"Number of control group rows {rows_h}")
 
-rows_s = df_master_s.count()
-print(f"Number of Z rows {rows_s}")
+# rows_s = df_master_s.count()
+# print(f"Number of study group rows {rows_s}")
 
 # COMMAND ----------
 
@@ -163,8 +173,8 @@ print(f"Number of Z rows {rows_s}")
 spark.sql(f"CREATE DATABASE IF NOT EXISTS solution_accelerator LOCATION '/main'")
 
 # Confirm Schema was created
-df = spark.sql(f"SHOW DATABASES")
-df.show()
+sc = spark.sql(f"SHOW DATABASES")
+sc.show()
 
 # The USE command ensures that subsequent code blocks are executed within the appropriate Schema.
 spark.sql(f"USE main.solution_accelerator")
@@ -198,3 +208,33 @@ del df_master_s
 # Verify the table has been created correctly by querying the table
 spark.sql("SELECT * FROM main.solution_accelerator.eeg_data_bronze_control LIMIT 3").show()
 spark.sql("SELECT * FROM main.solution_accelerator.eeg_data_bronze_study LIMIT 3").show()
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC
+# MAGIC SELECT patient_id, count(*) AS number_of_readings 
+# MAGIC FROM main.solution_accelerator.eeg_data_bronze_control
+# MAGIC GROUP BY patient_id;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC
+# MAGIC SELECT patient_id, count(*) AS number_of_readings 
+# MAGIC FROM main.solution_accelerator.eeg_data_bronze_study
+# MAGIC GROUP BY patient_id;
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##### Note: there are many more datapoints for the Study patients than the control.
+# MAGIC ##### Equation to find the correct number of datapoints: 
+# MAGIC
+# MAGIC ##### Convert Minutes to Seconds:
+# MAGIC     15 minutes (EEG ran for 15mins) × 60 seconds/minute = 900 seconds
+# MAGIC
+# MAGIC ##### Calculate Total Number of Samples:
+# MAGIC     900 seconds × 250 samples/second (Frequency for data was 250 Hz) = 225,000 samples
+# MAGIC
+# MAGIC ###### Frequency is the rate at which current changes direction per second. It is measured in hertz (Hz), an international unit of measure where 1 hertz is equal to 1 cycle per second. Hertz (Hz) = One hertz is equal to one cycle per second. Cycle = One complete wave of alternating current or voltage.
