@@ -1,8 +1,18 @@
 # Databricks notebook source
-df_silver = spark.sql(""" SELECT * FROM main.solution_accelerator.eeg_rest_ref_silver""")
+df_silver = spark.sql(""" SELECT * FROM main.solution_accelerator.butter_avg_delta_gold where patient_id == 's11'""")
 
 display(df_silver)
 
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC next few cells for eegraph
 
 # COMMAND ----------
 
@@ -49,6 +59,12 @@ def calculate_conn(data_intervals, i, j, sample_rate, channels, bands):
 
 # COMMAND ----------
 
+from scipy.signal import hilbert 
+import numpy as np
+import pandas as pd
+
+# COMMAND ----------
+
 ELECTRODE_LOCATIONS = ['Fp2', 'F8', 'T4', 'T6', 'O2', 'Fp1', 'F7', 'T3', 'T5', 'O1', 'F4', 'C4', 'P4', 'F3', 'C3', 'P3', 'Fz', 'Cz', 'Pz']
 
 ELECTRODE_LOCATIONS_ORDERED = ['Fp1', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8', 'T3','C3', 'Cz',  'C4', 'T4', 'T5', 'P3', 'Pz', 'P4', 'T6', 'O1','O2']
@@ -64,14 +80,15 @@ display(pairs_with_self)
 
 # setup for PLV 
 
-# removed 'subject' since it isn't present in the table,
-results_df = pd.DataFrame(columns=['patient_id', 'cx', 'cy', 'plv_delta', 'plv_theta', 'plv_alpha', 'plv_beta', 'plv_gamma'])
-
+#for EEGraph
 i = 0
 j = 1
 sample_rate = 250
 channels = 2
 bands = 5
+
+# removed 'subject' since it isn't present in the table,
+results_df = pd.DataFrame(columns=['patient_id', 'cx', 'cy', 'plv_delta', 'plv_theta', 'plv_alpha', 'plv_beta', 'plv_gamma'])
 
 unique_patient_ids = df_silver.select("patient_id").distinct()
 unique_patient_ids_list = unique_patient_ids.collect()
@@ -79,6 +96,7 @@ display(unique_patient_ids_list)
 
 # COMMAND ----------
 
+# if using eegraph
 for row in unique_patient_ids_list:
     patient_id = row['patient_id']
     display("starting patient")
@@ -102,6 +120,60 @@ for row in unique_patient_ids_list:
             'plv_gamma': plv_gamma
         }
         results_df = results_df.append(new_row, ignore_index=True)
+
+# COMMAND ----------
+
+#trying scipy.signal 
+for row in unique_patient_ids_list:
+    patient_id = row['patient_id']
+    display("starting patient")
+    display(patient_id)
+    df = df_silver[df_silver.patient_id == patient_id]
+    df_pandas = df.toPandas()
+
+    for p in pairs_with_self:
+        if (p[0] != 'Fp1' and p[1] != 'Fp1'):
+            display(p[0], p[1])
+            data_intervals = [df_pandas[p[0]], df_pandas[p[1]]]
+            
+            # Step 1: Compute the Hilbert transform to get the analytic signal
+            analytic_signal = np.array([hilbert(channel) for channel in data_intervals])
+            #display(plv_delta)
+    
+            # Step 2: Extract the instantaneous phase
+            instantaneous_phase = np.angle(analytic_signal)
+            
+            # Step 3: Calculate the PLV
+            #n_channels = data_intervals.shape[0] FIX THIS IF NEEDING FLEXIBILITY
+            n_channels = 2
+            plv_matrix = np.zeros((n_channels, n_channels))
+            
+            for i in range(n_channels):
+                for j in range(i+1, n_channels):
+                    # Calculate the phase difference
+                    phase_diff = instantaneous_phase[i] - instantaneous_phase[j]
+                    # Calculate the PLV
+                    plv = np.abs(np.mean(np.exp(1j * phase_diff)))
+                    plv_matrix[i, j] = plv
+                    plv_matrix[j, i] = plv  # PLV is symmetric
+            
+            #return plv_matrix
+            display(plv_matrix)
+            plv_delta = plv_matrix[0, 1]
+
+            new_row = {
+                'patient_id': df_pandas['patient_id'].iloc[0],
+                #'subject': df_patient13_pandas['subject'],
+                'cx': p[0],
+                'cy': p[1],
+                'plv_delta': plv_delta,
+                'plv_theta': 0,
+                'plv_alpha': 0,
+                'plv_beta': 0,
+                'plv_gamma': 0
+            }
+            results_df = results_df.append(new_row, ignore_index=True)
+       
 
 # COMMAND ----------
 
@@ -137,7 +209,7 @@ display(a)
 
 # COMMAND ----------
 
-filtered_df = results_df[results_df.patient_id == 's13']
+filtered_df = results_df[results_df.patient_id == 's11']
 
 # tried pivot, but it was sorting ABC and doesn't have a param for sort
 df_pivot = filtered_df.pivot("cx", "cy", "plv_delta")
