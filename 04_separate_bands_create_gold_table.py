@@ -233,7 +233,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):
 
 ######################### Graphs #########################
 
-def plot_butter_bandpass(lowcut, highcut, fs, order=2):
+def plot_butter_bandpass(freq_range, fs, order=2):
     """
     Plots the frequency response of a Butterworth bandpass filter.
 
@@ -243,6 +243,7 @@ def plot_butter_bandpass(lowcut, highcut, fs, order=2):
     - fs: Sampling frequency.
     - order: Order of the filter (default is 2).
     """
+    lowcut, highcut = freq_range
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     w, h = freqz(b, a, worN=2000)
     plt.figure(figsize=(10, 6))
@@ -292,6 +293,7 @@ pt_names = list(df_avg_ref_cp['patient_id'].unique())
 
 butter_filtered_data_avg = {}
 
+
 for pt in pt_names:
     print("PATIENT_NAME::", pt)
     butter_filtered_data_avg[pt] = {}
@@ -305,8 +307,10 @@ for pt in pt_names:
                 # print("---BAND::", band)
                 butter_filtered_data_avg[pt][c_name][band] = butter_bandpass_filter(ch_data.values, lowcut, highcut, sampling_freq, order)
 
-                # Plot the Butterworth bandpass filter frequency response
-                plot_butter_bandpass(lowcut, highcut, sampling_freq, order=order)
+for freq_range in frequency_bands.values():
+    # Plot the Butterworth bandpass filter frequency response
+    plot_butter_bandpass(freq_range, sampling_freq, order=order)
+
 
 
 # COMMAND ----------
@@ -580,8 +584,3 @@ del df_dict_avg
 del df_avg_ref 
 del df_avg_ref_cp
 del bands_dict_avg
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC

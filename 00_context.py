@@ -31,7 +31,10 @@
 # MAGIC
 # MAGIC * Design and develop a machine learning based prediction model.
 # MAGIC
-# MAGIC * Examine the prediction accuracy of the proposed model using statistical based calculations, the performance assessment metric Root Mean-Square Error (RMSE), and the Coefficient of determination (R2) are used to compare the performance of the model.
+# MAGIC * 
+# MAGIC
+# MAGIC Citation: Olejarczyk E, Jernajczyk W (2017) Graph-based analysis of brain connectivity in schizophrenia. PLoS ONE 12(11): e0188629. https://doi.org/10.1371/journal.pone.0188629
+# MAGIC https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0188629
 # MAGIC
 # MAGIC ##### Data collection - publicly available dataset
 # MAGIC
@@ -41,7 +44,7 @@
 # MAGIC     
 # MAGIC     Data were acquired with the sampling frequency of 250 Hz using the standard 10–20 EEG montage with 19 EEG channels: Fp1, Fp2, F7, F3, Fz, F4, F8, T3, C3, Cz, C4, T4, T5, P3, Pz, P4, T6, O1, O2.
 # MAGIC
-# MAGIC     Data located in a public repository: Olejarczyk, E.; Jernajczyk, W. (2017) EEG in schizophrenia. RepOD. http://dx.doi.org/10.18150/repod.0107441.
+# MAGIC     Data Availability: Data are held in a public repository: Olejarczyk, E.; Jernajczyk, W. (2017) EEG in schizophrenia. RepOD. http://dx.doi.org/10.18150/repod.0107441.
 # MAGIC
 # MAGIC
 # MAGIC ##### Assumptions

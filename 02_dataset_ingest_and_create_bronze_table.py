@@ -202,72 +202,72 @@ from pyspark.sql.functions import lit
 """
 The pyedflib method wasn't utilized because subsequent EEG data processing relied on the MNE package, which automatically handles the conversion of voltage units. This ensured that data loaded into Delta Tables, Pandas, and Spark DataFrames consistently maintained units of voltage. Despite testing both methods, they yielded identical results in terms of voltage, without discrepancies in millivolts or microvolts. 
 """
-# # Directory path
-# directory = '/tmp'
+# Directory path
+directory = '/tmp'
 
-# df_master_h = None
-# df_master_s = None
+df_master_h = None
+df_master_s = None
 
-# # Iterate over files in the directory
-# for filename in os.listdir(directory):
-#     print(filename)
-#     # Path to the EEG file (EDF format file in DBFS)
-#     if os.path.isfile(os.path.join(directory, filename)):
-#         if "edf" in filename:
-#             # Create the file path
-#             filepath = os.path.join(directory, filename)
+# Iterate over files in the directory
+for filename in os.listdir(directory):
+    print(filename)
+    # Path to the EEG file (EDF format file in DBFS)
+    if os.path.isfile(os.path.join(directory, filename)):
+        if "edf" in filename:
+            # Create the file path
+            filepath = os.path.join(directory, filename)
 
-#             # Read the EDF file
-#             edf_f = pyedflib.EdfReader(filepath)
+            # Read the EDF file
+            edf_f = pyedflib.EdfReader(filepath)
 
-#             # Extract data from the .edf file
+            # Extract data from the .edf file
 
-#             # Get the number of signals, i.e. number of electrode locations
-#             n_signals = edf_f.signals_in_file
+            # Get the number of signals, i.e. number of electrode locations
+            n_signals = edf_f.signals_in_file
 
-#             # Get the labels of each signal, i.e. electrode location names
-#             signal_labels = edf_f.getSignalLabels()
+            # Get the labels of each signal, i.e. electrode location names
+            signal_labels = edf_f.getSignalLabels()
             
-            # print(f"signal_labels:::{signal_labels}")
+            print(f"signal_labels:::{signal_labels}")
 
-            # # Create a dictionary to hold the data
-            # signal_data = {}
+            # Create a dictionary to hold the data
+            signal_data = {}
 
-            # # Read each signal into the dictionary
-            # for i in range(n_signals):
-            #     signal_data[signal_labels[i]] = edf_f.readSignal(i)
-            #     # Verify we have 250 Hz of datapoints, 15 min * 60 sec = 900, 900 * 250 = 225000
-            #     # print(f"Num of Signals:::{signal_labels[i]} Num{len( signal_data[signal_labels[i]])}")
-            # print(signal_data.keys())
+            # Read each signal into the dictionary
+            for i in range(n_signals):
+                signal_data[signal_labels[i]] = edf_f.readSignal(i)
+                # Verify we have 250 Hz of datapoints, 15 min * 60 sec = 900, 900 * 250 = 225000
+                # print(f"Num of Signals:::{signal_labels[i]} Num{len( signal_data[signal_labels[i]])}")
+            print(signal_data.keys())
 
-            # # Close the .edf file
-            # edf_f._close()
-            # del edf_f
+            # Close the .edf file
+            edf_f._close()
+            del edf_f
 
-            # # making a Pandas DataFrame first is faster and will ensure the double data type for the signals 
-            # df_eeg_data = pd.DataFrame.from_dict(signal_data)
+            # making a Pandas DataFrame first is faster and will ensure the double data type for the signals 
+            df_eeg_data = pd.DataFrame.from_dict(signal_data)
 
-            # patient_file_name = filename.replace(".edf","")
-            # print(f"patient_file_name::{patient_file_name}")
+            patient_file_name = filename.replace(".edf","")
+            print(f"patient_file_name::{patient_file_name}")
 
-            # # Add a new index column. We do this so the data goes in, in order for the sine waves
-            # df_eeg_data['index_id'] = df_eeg_data.index
-            # # print(df_eeg_data)
+            # Add a new index column. We do this so the data goes in, in order for the sine waves
+            df_eeg_data['index_id'] = df_eeg_data.index
+            # print(df_eeg_data)
             
-            # df_spark = spark.createDataFrame(df_eeg_data)
-            # df_spark = df_spark.withColumn('patient_id', lit(patient_file_name))
-            # # display(df_spark)
+            df_spark = spark.createDataFrame(df_eeg_data)
+            df_spark = df_spark.withColumn('patient_id', lit(patient_file_name))
+            # display(df_spark)
             
-            # if filename.startswith("h"):
-            #     if df_master_h is None:
-            #         df_master_h = df_spark
-            #     else:
-            #         df_master_h = df_master_h.union(df_spark) 
-#                     print("APPEND")
-#             if filename.startswith("s"):
-#                 if df_master_s is None:
-#                     df_master_s = df_spark
-#                 else:
-#                     df_master_s = df_master_s.union(df_spark)
-#                     print("APPEND")    
-# print('DONE') 
+            if filename.startswith("h"):
+                if df_master_h is None:
+                    df_master_h = df_spark
+                else:
+                    df_master_h = df_master_h.union(df_spark) 
+                    print("APPEND")
+            if filename.startswith("s"):
+                if df_master_s is None:
+                    df_master_s = df_spark
+                else:
+                    df_master_s = df_master_s.union(df_spark)
+                    print("APPEND")    
+print('DONE') 

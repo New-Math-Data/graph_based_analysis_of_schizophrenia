@@ -55,8 +55,6 @@
 # MAGIC %md
 # MAGIC ##### Troubleshooting Import Errors
 # MAGIC
-# MAGIC If you encounter a `No module named 'pyEDFlib'` error, follow these steps:
-# MAGIC
 # MAGIC 1. Click on the carrot (down arrow) next to your compute cluster and select `Restart`.
 # MAGIC 2. If the error persists, terminate the cluster and then start it again.
 # MAGIC 3. Run this Notebook in future Notebooks: `%run "./01_setup"`
@@ -65,11 +63,6 @@
 
 # Note: you may need to restart the kernel using dbutils.library.restartPython() to use updated packages.
 dbutils.library.restartPython()
-
-# Verify the installation by importing the package
-import pyedflib
-
-print("pyedflib version:", pyedflib.__version__)
 
 # COMMAND ----------
 
