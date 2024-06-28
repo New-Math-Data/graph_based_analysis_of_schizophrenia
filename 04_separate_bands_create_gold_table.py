@@ -19,40 +19,31 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ###### Retrieve data from Silver Table
+# MAGIC ###### Retrieve data from Silver Tables and convert in place PySpark Dataframe to Pandas Dataframe
 
 # COMMAND ----------
 
 # REST Reference Method Table
-df_rest_ref_all = spark.sql("""SELECT * FROM main.solution_accelerator.eeg_rest_ref_silver ORDER BY index_id ASC""")
+df_rest_ref = spark.sql("""SELECT * FROM main.solution_accelerator.eeg_rest_ref_silver ORDER BY index_id ASC""").toPandas()
 # Average Reference Method Table
-df_avg_ref_all = spark.sql("""SELECT * FROM main.solution_accelerator.eeg_avg_ref_silver ORDER BY index_id ASC""")
+df_avg_ref = spark.sql("""SELECT * FROM main.solution_accelerator.eeg_avg_ref_silver ORDER BY index_id ASC""").toPandas()
 
 # Show the result
-display(df_rest_ref_all)
-# df_rest_ref_all.show()
+# display(df_rest_ref)
+# df_rest_ref.show()
 
 # Show the result
-display(df_avg_ref_all)
-# df_avg_ref_all.show()
+# display(df_avg_ref)
+# df_avg_ref.show()
 
-# COMMAND ----------
+# Select distinct values from the 'patient_id' column
+patient_ids = df_rest_ref["patient_id"].unique()
 
-# MAGIC %md
-# MAGIC ###### Convert PySpark Dataframe to Pandas Dataframe
+# Display distinct values
+print(f"patient_ids:::{patient_ids}")
 
-# COMMAND ----------
-
-# Convert our two PySpark Dataframes to Pandas Dataframes
-# display(df_rest_ref_all.head())
-
-df_rest_ref = df_rest_ref_all.toPandas()
+# Display DataFrames
 display(df_rest_ref)
-
-# Convert our two PySpark Dataframes to Pandas Dataframes
-# display(df_avg_ref_all.head())
-
-df_avg_ref = df_avg_ref_all.toPandas()
 display(df_avg_ref)
 
 # COMMAND ----------
@@ -72,17 +63,71 @@ import matplotlib.pyplot as plt
 ######################################## Butterworth Filter ########################################
 
 def butter_bandpass(lowcut, highcut, fs, order=2):
-    nyq = 0.5 * fs
+    """
+        Design a Butterworth bandpass filter.
+        
+        Parameters:
+        lowcut (float): Lower cutoff frequency
+        highcut (float): Upper cutoff frequency
+        fs (float): Sampling frequency
+        order (int): Order of the filter. Default is 2.
+        
+        Returns:
+        b, a (ndarray, ndarray): Numerator and denominator polynomial coefficients of the filter
+    """
+    nyq = 0.5 * fs # Nyquist Frequency
     low = lowcut / nyq
     high = highcut / nyq
     b, a = butter(order, [low, high], btype='band')
     return b, a
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):
+    """
+        Applies a Butterworth bandpass filter to a signal.
+
+        Parameters:
+        - data: Signal data to be filtered.
+        - lowcut: Lower cutoff frequency.
+        - highcut: Higher cutoff frequency.
+        - fs: Sampling frequency.
+        - order: Order of the filter (default is 2).
+
+        Returns:
+        - y: Filtered signal.
+    """
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = filtfilt(b, a, data)
     return y
 
+######################### Graphs #########################
+
+def plot_butter_bandpass(lowcut, highcut, fs, order=2):
+    """
+    Plots the frequency response of a Butterworth bandpass filter.
+
+    Parameters:
+    - lowcut: Lower cutoff frequency.
+    - highcut: Higher cutoff frequency.
+    - fs: Sampling frequency.
+    - order: Order of the filter (default is 2).
+    """
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    w, h = freqz(b, a, worN=2000)
+    plt.figure(figsize=(10, 6))
+    plt.plot((fs * 0.5 / np.pi) * w, abs(h), 'b')
+    plt.plot(lowcut, 0.5 * np.sqrt(2), 'ko')
+    plt.plot(highcut, 0.5 * np.sqrt(2), 'ko')
+    plt.axvline(lowcut, color='k')
+    plt.axvline(highcut, color='k')
+    plt.xlim(0, 0.5 * fs)
+    plt.title("Butterworth Bandpass Filter Frequency Response")
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Gain')
+    plt.grid()
+    plt.show()
+
+######################### Constants -- EEG data parameters #########################
+#     
 # Define frequency bands
 frequency_bands = {
     'delta': (2, 4),
@@ -111,7 +156,7 @@ ch_names = [c for c in df_rest_ref_cp.head() if c != 'patient_id' and c != 'inde
 
 # Extract patient_id column
 pt_names = list(df_rest_ref_cp['patient_id'].unique())
-# print(f"patient_names:::{pt_names}")
+print(f"patient_names:::{pt_names}")
 
 butter_filtered_data_rest = {}
 
@@ -128,54 +173,8 @@ for pt in pt_names:
                 # print("---BAND::", band)
                 butter_filtered_data_rest[pt][c_name][band] = butter_bandpass_filter(ch_data.values, lowcut, highcut, sampling_freq, order)
 
-
-######################### Graphs #########################
-
-# # Print filtered EEG data shape
-# for band, data in butter_filtered_data_rest.items():
-
-#     # Compute the frequency response of the filter
-#     b, a = butter_bandpass(ch_names, lowcut, highcut, sampling_freq, order)
-#     w, h = freqz(b, a, worN=8000)
-
-#     # Convert the normalized frequencies to Hz
-#     frequencies = 0.5 * sampling_freq * w / np.pi
-
-#     # Plot the frequency response
-#     plt.figure()
-#     plt.plot(frequencies, np.abs(h), 'b')
-#     plt.title('Butter Filter frequency response for EEG Data each subject.')
-#     plt.xlabel('Frequency (Hz)')
-#     plt.ylabel('Gain')
-#     plt.grid()
-#     plt.show()
-
-#     plt.semilogx(w, 20 * np.log10(abs(h)))
-#     plt.title('Butter Filter frequency response for EEG Data each subject.')
-#     plt.xlabel('Frequency [radians / second]')
-#     plt.ylabel('Amplitude [dB]')
-#     plt.margins(0, 0.1)
-#     plt.grid(which='both', axis='both')
-#     plt.axvline(100, color='green') # cutoff frequency
-#     plt.show()
-
-    # t = np.linspace(0, 1, 1000, False)  # 1 second
-    # sig = np.sin(2*np.pi*10*t) + np.sin(2*np.pi*20*t)
-    # fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    # ax1.plot(t, sig)
-    # ax1.set_title('10 Hz and 20 Hz sinusoids')
-    # ax1.axis([0, 1, -2, 2])
-
-    # sos = signal.butter(10, 15, 'hp', fs=1000, output='sos')
-    # filtered = signal.sosfilt(sos, sig)
-    # ax2.plot(t, filtered)
-    # ax2.set_title('After 15 Hz high-pass filter')
-    # ax2.axis([0, 1, -2, 2])
-    # ax2.set_xlabel('Time [seconds]')
-    # plt.tight_layout()
-    # plt.title('Butter Filter frequency response for EEG Data each subject.')
-    # plt.show()
-
+                # Plot the Butterworth bandpass filter frequency response
+                plot_butter_bandpass(lowcut, highcut, sampling_freq, order=order)
 
 
 # COMMAND ----------
@@ -196,17 +195,71 @@ import matplotlib.pyplot as plt
 ######################################## Butterworth Filter ########################################
 
 def butter_bandpass(lowcut, highcut, fs, order=2):
-    nyq = 0.5 * fs
+    """
+        Design a Butterworth bandpass filter.
+        
+        Parameters:
+        lowcut (float): Lower cutoff frequency
+        highcut (float): Upper cutoff frequency
+        fs (float): Sampling frequency
+        order (int): Order of the filter. Default is 2.
+        
+        Returns:
+        b, a (ndarray, ndarray): Numerator and denominator polynomial coefficients of the filter
+    """
+    nyq = 0.5 * fs # Nyquist Frequency
     low = lowcut / nyq
     high = highcut / nyq
     b, a = butter(order, [low, high], btype='band')
     return b, a
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):
+    """
+        Applies a Butterworth bandpass filter to a signal.
+
+        Parameters:
+        - data: Signal data to be filtered.
+        - lowcut: Lower cutoff frequency.
+        - highcut: Higher cutoff frequency.
+        - fs: Sampling frequency.
+        - order: Order of the filter (default is 2).
+
+        Returns:
+        - y: Filtered signal.
+    """
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = filtfilt(b, a, data)
     return y
 
+######################### Graphs #########################
+
+def plot_butter_bandpass(lowcut, highcut, fs, order=2):
+    """
+    Plots the frequency response of a Butterworth bandpass filter.
+
+    Parameters:
+    - lowcut: Lower cutoff frequency.
+    - highcut: Higher cutoff frequency.
+    - fs: Sampling frequency.
+    - order: Order of the filter (default is 2).
+    """
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    w, h = freqz(b, a, worN=2000)
+    plt.figure(figsize=(10, 6))
+    plt.plot((fs * 0.5 / np.pi) * w, abs(h), 'b')
+    plt.plot(lowcut, 0.5 * np.sqrt(2), 'ko')
+    plt.plot(highcut, 0.5 * np.sqrt(2), 'ko')
+    plt.axvline(lowcut, color='k')
+    plt.axvline(highcut, color='k')
+    plt.xlim(0, 0.5 * fs)
+    plt.title("Butterworth Bandpass Filter Frequency Response")
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Gain')
+    plt.grid()
+    plt.show()
+
+######################### Constants -- EEG data parameters #########################
+#     
 # Define frequency bands
 frequency_bands = {
     'delta': (2, 4),
@@ -252,55 +305,8 @@ for pt in pt_names:
                 # print("---BAND::", band)
                 butter_filtered_data_avg[pt][c_name][band] = butter_bandpass_filter(ch_data.values, lowcut, highcut, sampling_freq, order)
 
-
-######################### Graphs #########################
-
-        # # Print filtered EEG data shape
-        # for band, data in butter_filtered_data.items():
-        #     print(f'{band} band filtered data shape: {data.shape}')
-
-        # # Compute the frequency response of the filter
-        # b, a = butter_bandpass(df_patients[c_name].values, lowcut, highcut, sampling_freq, order)
-        # w, h = freqz(b, a, worN=8000)
-
-        # # Convert the normalized frequencies to Hz
-        # frequencies = 0.5 * sampling_freq * w / np.pi
-
-        # # Plot the frequency response
-        # plt.figure()
-        # plt.plot(frequencies, np.abs(h), 'b')
-        # plt.title('Butter Filter frequency response for EEG Data each subject.')
-        # plt.xlabel('Frequency (Hz)')
-        # plt.ylabel('Gain')
-        # plt.grid()
-        # plt.show()
-
-        # plt.semilogx(w, 20 * np.log10(abs(h)))
-        # plt.title('Butter Filter frequency response for EEG Data each subject.')
-        # plt.xlabel('Frequency [radians / second]')
-        # plt.ylabel('Amplitude [dB]')
-        # plt.margins(0, 0.1)
-        # plt.grid(which='both', axis='both')
-        # plt.axvline(100, color='green') # cutoff frequency
-        # plt.show()
-
-        # t = np.linspace(0, 1, 1000, False)  # 1 second
-        # sig = np.sin(2*np.pi*10*t) + np.sin(2*np.pi*20*t)
-        # fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-        # ax1.plot(t, sig)
-        # ax1.set_title('10 Hz and 20 Hz sinusoids')
-        # ax1.axis([0, 1, -2, 2])
-
-        # sos = signal.butter(10, 15, 'hp', fs=1000, output='sos')
-        # filtered = signal.sosfilt(sos, sig)
-        # ax2.plot(t, filtered)
-        # ax2.set_title('After 15 Hz high-pass filter')
-        # ax2.axis([0, 1, -2, 2])
-        # ax2.set_xlabel('Time [seconds]')
-        # plt.tight_layout()
-        # plt.title('Butter Filter frequency response for EEG Data each subject.')
-        # plt.show()
-
+                # Plot the Butterworth bandpass filter frequency response
+                plot_butter_bandpass(lowcut, highcut, sampling_freq, order=order)
 
 
 # COMMAND ----------
@@ -309,6 +315,8 @@ for pt in pt_names:
 # MAGIC ###### Checking that the order and level of Butterworth Filter DataFrame is correct
 
 # COMMAND ----------
+
+# Testing that the data schema looks correct 
 
 # print(butter_filtered_data.keys())
 # for pt in butter_filtered_data:
@@ -360,8 +368,8 @@ schema = StructType([
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC %md
-# MAGIC ##### Create PySpark DataFrames for REST Reference Method Butterworth Filter Data 
+# MAGIC ###### Create PySpark DataFrames for REST Reference Method Butterworth Filter Data 
+# MAGIC ###### Create Butterworth Filter data for REST Reference Method Gold Layer Table 
 
 # COMMAND ----------
 
@@ -385,7 +393,7 @@ import pandas as pd
 # butter_filtered_data = {
 #     "h07":{
 #         "F7":{
-#             "delta":[0,1,2,3],
+#               "delta":[0,1,2,3],
 #             "theta":[4,5,6,7]},
 #        "T3":{
 #            "delta":[9,11,12,13],
@@ -393,25 +401,40 @@ import pandas as pd
 #         }
 # }
 
-# Convert the filtered data dictionary into a DataFrame
-
-bands_dict_rest = {}
-
 ######################### REST Reference Method Data Used #########################
+
+# Define frequency bands
+freq_bands = {
+    'delta',
+    'theta',
+    'alpha',
+    'beta',
+    'gamma'
+}
+# Convert the filtered data dictionary into a DataFrame
+rest_band_init = []
+
+for band in freq_bands:
+  print("DROP TABLE::", f"main.solution_accelerator.butter_rest_{band}_gold")
+  spark.sql(f"DROP TABLE IF EXISTS main.solution_accelerator.butter_rest_{band}_gold");  
 
 # Iterate over the patients in the dictionary
 for pt in butter_filtered_data_rest:
+  bands_dict_rest = {}
+  print(f"PATIENT:::{pt}")
   original_time_points = df_rest_ref['time'].loc[df_rest_ref['patient_id'] == pt].to_list()
+  # print('original_time_points:::', original_time_points)
   # Iterate over the channels
   for ch in butter_filtered_data_rest[pt]:
     # Get the number readings from one of the bands for this channel, doesn't matter which band, its assumeed all are the same length
     num_readings = len(butter_filtered_data_rest[pt][ch]['delta'])
+   
     # Iterate over the number of readings (assumed to be in time order)
     for indx in range(num_readings):
       # Iterate over each band for the channel (should be the same for each channel)
       for band in butter_filtered_data_rest[pt][ch]:
         # print(f"len band:::{len(butter_filtered_data_rest[pt][ch][band])}")
-        # print("TIME::", time_point, "BAND::",band, "CHANNEL::", ch, "VALUE::", butter_filtered_data_rest[pt][ch][band][time_point])
+        # print("PATIENT:::", butter_filtered_data_rest, "TIME::", indx, "BAND::",band, "CHANNEL::", ch, "VALUE::", butter_filtered_data_rest[pt][ch][band][indx])
         # Initialize the bands_dict_rest for this band if it doesn't exist yet
         if band not in bands_dict_rest:
           bands_dict_rest[band] = []
@@ -419,41 +442,38 @@ for pt in butter_filtered_data_rest:
         if len(bands_dict_rest[band]) < indx + 1:
           # Add the channel and value to the indx for the band
           bands_dict_rest[band].append({"patient_id": pt, "time": original_time_points[indx]})
-        
         # Add the reading value to the dictionary
         bands_dict_rest[band][indx][ch] = butter_filtered_data_rest[pt][ch][band][indx]
-
+  
+  for band in bands_dict_rest:
+    df_dict_rest = spark.createDataFrame(bands_dict_rest[band], schema=schema)   
+    if band in rest_band_init:
+      print("APPEND::", pt, " BAND::", band, f"main.solution_accelerator.butter_rest_{band}_gold")
+      df_dict_rest.write.format("delta").mode("append").saveAsTable(f"main.solution_accelerator.butter_rest_{band}_gold")
+    else:
+      print("OVERWRITE::", pt, " BAND::", band)
+      df_dict_rest.write.format("delta").mode("overwrite").saveAsTable(f"main.solution_accelerator.butter_rest_{band}_gold")
+      rest_band_init.append(band)
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##### Create Gold Layer Table
-# MAGIC ###### Butterworth Filter data for REST Reference Method
+# MAGIC ###### Deleting all DataFrames and dictionaries from memory
 
 # COMMAND ----------
 
-# Create Tables
-for band in bands_dict_rest.keys():
-    # print("LEN::",len(bands_dict_rest[band]))
-    # print("FIRST::", bands_dict_rest[band][0])
-    # print("LAST::", bands_dict_rest[band][-1])
-    df_dict_rest = spark.createDataFrame(bands_dict_rest[band], schema=schema)
-    # Dropping the table because we may have updated the Dataframe
-    spark.sql(f"DROP TABLE IF EXISTS main.solution_accelerator.butter_rest_{band}_gold");  
-
-    # Establish a persistent delta table by converting the previously created Spark DataFrames into a Delta Tables. Replace any previously existing table and register the DataFrame as a Delta table in the metastore.
-    df_dict_rest.write.format("delta").mode("overwrite").saveAsTable(f"main.solution_accelerator.butter_rest_{band}_gold")
-
-    print("Tables exist.")
-
 # Delete the Dataframes and dictionary from memory
-del df_dict_rest
+del butter_filtered_data_rest
+del df_dict_rest 
+del df_rest_ref 
+del df_rest_ref_cp
 del bands_dict_rest
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##### Create PySpark DataFrames for Average Reference Method Butterworth Filter Data 
+# MAGIC ###### Create PySpark DataFrames for Average Reference Method Butterworth Filter Data 
+# MAGIC ###### Create Butterworth Filter data for Average Reference Method Gold Layer Table 
 
 # COMMAND ----------
 
@@ -485,14 +505,30 @@ import pandas as pd
 #         }
 # }
 
-# Convert the filtered data dictionary into a DataFrame
-
-bands_dict_avg = {}
 
 ######################### Average Reference Method Used #########################
 
+# Convert the filtered data dictionary into a DataFrame
+
+# Define frequency bands
+freq_bands = {
+    'delta',
+    'theta',
+    'alpha',
+    'beta',
+    'gamma'
+}
+
+avg_band_init = []
+
+for band in freq_bands:
+  print("DROP TABLE::", f"main.solution_accelerator.butter_avg_{band}_gold")
+  spark.sql(f"DROP TABLE IF EXISTS main.solution_accelerator.butter_avg_{band}_gold");  
+
 # Iterate over the patients in the dictionary
 for pt in butter_filtered_data_avg:
+  bands_dict_avg = {}
+  print(f"PATIENT:::{pt}")
   original_time_points = df_avg_ref['time'].loc[df_avg_ref['patient_id'] == pt].to_list()
   # Iterate over the channels
   for ch in butter_filtered_data_avg[pt]:
@@ -514,29 +550,35 @@ for pt in butter_filtered_data_avg:
         
         # Add the reading value to the dictionary
         bands_dict_avg[band][indx][ch] = butter_filtered_data_avg[pt][ch][band][indx]
-        
+  for band in bands_dict_avg:
+    df_dict_avg = spark.createDataFrame(bands_dict_avg[band], schema=schema)   
+    if band in avg_band_init:
+      print("APPEND::", pt, " BAND::", band, f"main.solution_accelerator.butter_avg_{band}_gold")
+      df_dict_avg.write.format("delta").mode("append").saveAsTable(f"main.solution_accelerator.butter_avg_{band}_gold")
+    else:
+      print("OVERWRITE::", pt, " BAND::", band)
+      df_dict_avg.write.format("delta").mode("overwrite").saveAsTable(f"main.solution_accelerator.butter_avg_{band}_gold")
+      avg_band_init.append(band)
+
+# Delete the Dataframes and dictionary from memory
+# del butter_filtered_data_avg
+# del df_dict_avg
+# del df_avg_ref 
+# del df_avg_ref_cp
+# del bands_dict_avg
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ##### Create Gold Layer Table
-# MAGIC ###### Butterworth Filter data for Average Reference Method
+# MAGIC ###### Deleting all DataFrames and dictionaries from memory
 
 # COMMAND ----------
 
-# Create Tables
-for band in bands_dict_avg.keys():
-  df_dict_avg = spark.createDataFrame(bands_dict_avg[band], schema=schema)
-  # Dropping the table because we may have updated the Dataframe
-  spark.sql(f"DROP TABLE IF EXISTS main.solution_accelerator.butter_avg_{band}_gold");  
-
-  # Establish a persistent delta table by converting the previously created Spark DataFrames into a Delta Tables. Replace any previously existing table and register the DataFrame as a Delta table in the metastore.
-  df_dict_avg.write.format("delta").mode("overwrite").saveAsTable(f"main.solution_accelerator.butter_avg_{band}_gold")
-
-  print("Tables exist.")
-
 # Delete the Dataframes and dictionary from memory
+del butter_filtered_data_avg
 del df_dict_avg
+del df_avg_ref 
+del df_avg_ref_cp
 del bands_dict_avg
 
 # COMMAND ----------
